@@ -1,6 +1,7 @@
 import { Card, CardContent } from "@/components/ui/card"
 import { Spinner } from "@/components/ui/spinner"
 import { Skeleton } from "@/components/ui/skeleton"
+import { formatSummonerName, formatRegionDisplay } from "@/lib/utils"
 
 interface ProfileLoadingSpinnerProps {
   username?: string
@@ -9,6 +10,9 @@ interface ProfileLoadingSpinnerProps {
 }
 
 export function ProfileLoadingSpinner({ username, tag, region }: ProfileLoadingSpinnerProps) {
+  const displayName = username ? formatSummonerName(username, tag) : undefined
+  const displayRegion = region ? formatRegionDisplay(region) : undefined
+
   return (
     <div className="container max-w-6xl mx-auto p-4 space-y-8">
       {/* Header */}
@@ -33,19 +37,12 @@ export function ProfileLoadingSpinner({ username, tag, region }: ProfileLoadingS
             <div className="text-center space-y-3">
               <h2 className="text-2xl font-bold text-gray-800">
                 Loading Profile
-                {username && tag && (
-                  <span className="text-blue-600">
-                    {" "}
-                    for {username}#{tag}
-                  </span>
-                )}
+                {displayName && <span className="text-blue-600"> for {displayName}</span>}
               </h2>
               <div className="space-y-2">
                 <p className="text-lg text-gray-600">Fetching summoner data from Riot API...</p>
-                {region && (
-                  <p className="text-sm text-gray-500 uppercase tracking-wide font-medium">
-                    Region: {region.toUpperCase()}
-                  </p>
+                {displayRegion && (
+                  <p className="text-sm text-gray-500 uppercase tracking-wide font-medium">Region: {displayRegion}</p>
                 )}
               </div>
             </div>

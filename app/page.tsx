@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { ExternalLink } from "lucide-react"
 import { useEffect, useState } from "react"
 import { Spinner } from "@/components/ui/spinner"
+import { formatRegionDisplay } from "@/lib/utils"
 
 export default function Home() {
   const [isLoading, setIsLoading] = useState(false)
@@ -33,9 +34,9 @@ export default function Home() {
   }, [])
 
   const exampleProfiles = [
-    { name: "memento mori", tag: "echo", region: "eun1", regionDisplay: "EUNE" },
-    { name: "Ajvi", tag: "xyz", region: "euw1", regionDisplay: "EUW" },
-    { name: "cant type", tag: "1998", region: "na1", regionDisplay: "NA" },
+    { name: "memento mori", tag: "echo", region: "eun1", regionDisplay: formatRegionDisplay("eun1") },
+    { name: "Ajvi", tag: "xyz", region: "euw1", regionDisplay: formatRegionDisplay("euw1") },
+    { name: "cant type", tag: "1998", region: "na1", regionDisplay: formatRegionDisplay("na1") },
   ]
 
   return (

@@ -5,6 +5,7 @@ import type React from "react"
 import { useEffect, useState } from "react"
 import { useParams } from "next/navigation"
 import { Spinner } from "@/components/ui/spinner"
+import { formatSummonerName, formatRegionDisplay } from "@/lib/utils"
 
 interface ProfilePageWrapperProps {
   children: React.ReactNode
@@ -23,6 +24,9 @@ export function ProfilePageWrapper({ children }: ProfilePageWrapperProps) {
   const username = params?.username as string
   const tag = params?.tag as string
   const region = params?.region as string
+
+  const displayName = username ? formatSummonerName(username, tag) : undefined
+  const displayRegion = region ? formatRegionDisplay(region) : undefined
 
   useEffect(() => {
     // Simulate loading steps with realistic timing
@@ -50,7 +54,7 @@ export function ProfilePageWrapper({ children }: ProfilePageWrapperProps) {
   }, [])
 
   if (isLoading) {
-    return <ProfileLoadingSpinnerWithSteps username={username} tag={tag} region={region} loadingSteps={loadingSteps} />
+    return <ProfileLoadingSpinnerWithSteps username={displayName} region={displayRegion} loadingSteps={loadingSteps} />
   }
 
   return <>{children}</>
@@ -58,7 +62,6 @@ export function ProfilePageWrapper({ children }: ProfilePageWrapperProps) {
 
 interface ProfileLoadingSpinnerWithStepsProps {
   username?: string
-  tag?: string
   region?: string
   loadingSteps: {
     account: boolean
@@ -68,7 +71,7 @@ interface ProfileLoadingSpinnerWithStepsProps {
   }
 }
 
-function ProfileLoadingSpinnerWithSteps({ username, tag, region, loadingSteps }: ProfileLoadingSpinnerWithStepsProps) {
+function ProfileLoadingSpinnerWithSteps({ username, region, loadingSteps }: ProfileLoadingSpinnerWithStepsProps) {
   const steps = [
     { key: "account", label: "Fetching account information", completed: loadingSteps.account },
     { key: "rank", label: "Loading rank data", completed: loadingSteps.rank },
@@ -127,12 +130,7 @@ function ProfileLoadingSpinnerWithSteps({ username, tag, region, loadingSteps }:
             <div className="text-center space-y-3">
               <h2 className="text-2xl font-bold text-gray-800">
                 Loading Profile
-                {username && tag && (
-                  <span className="text-blue-600">
-                    {" "}
-                    for {username}#{tag}
-                  </span>
-                )}
+                {username && <span className="text-blue-600"> for {username}</span>}
               </h2>
               <div className="space-y-2">
                 <p className="text-lg text-gray-600">
@@ -143,9 +141,7 @@ function ProfileLoadingSpinnerWithSteps({ username, tag, region, loadingSteps }:
                   {completedSteps === 4 && "Finalizing profile..."}
                 </p>
                 {region && (
-                  <p className="text-sm text-gray-500 uppercase tracking-wide font-medium">
-                    Region: {region.toUpperCase()}
-                  </p>
+                  <p className="text-sm text-gray-500 uppercase tracking-wide font-medium">Region: {region}</p>
                 )}
               </div>
             </div>

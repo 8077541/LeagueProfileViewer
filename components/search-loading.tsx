@@ -1,7 +1,13 @@
 import { Card, CardContent } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 
-export function SearchLoading() {
+interface SearchLoadingProps {
+  username?: string
+  tag?: string
+  region?: string
+}
+
+export function SearchLoading({ username, tag, region }: SearchLoadingProps) {
   return (
     <Card className="w-full max-w-md mx-auto">
       <CardContent className="p-6 space-y-6">
