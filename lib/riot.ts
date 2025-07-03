@@ -27,8 +27,9 @@ const BASE_URLS = {
   // Summoner v4 API - Platform routes
   summoner: (region: string) => `https://${region}.api.riotgames.com/lol/summoner/v4/summoners`,
   summonerByName: (region: string) => `https://${region}.api.riotgames.com/lol/summoner/v4/summoners/by-name`,
-  // League v4 API - Platform routes
-  league: (region: string) => `https://${region}.api.riotgames.com/lol/league/v4/entries/by-summoner`,
+  // League v4 API - Platform routes (FIXED: using by-puuid instead of by-summoner)
+  league: (region: string) => `https://${region}.api.riotgames.com/lol/league/v4/entries/by-puuid`,
+  leagueBySummoner: (region: string) => `https://${region}.api.riotgames.com/lol/league/v4/entries/by-summoner`,
   // Match v5 API - Regional routes
   matches: (region: string) => {
     const routing = REGION_ROUTING[region] || "europe"
@@ -301,18 +302,48 @@ async function makeApiRequest(url: string, region: string, retries = 2): Promise
 // Get summoner data by riot ID (name + tag)
 export async function getSummonerByRiotId(region: string, name: string, tag: string) {
   try {
+    console.log(`🔍 [getSummonerByRiotId] Starting lookup for ${name}#${tag} in region ${region}`)
+
     // Check cache first
     const cacheKey = CACHE_KEYS.SUMMONER(region, name, tag)
     const cachedData = getFromCache<any>(cacheKey)
     if (cachedData) {
+      console.log(`✅ [getSummonerByRiotId] Found cached data for ${name}#${tag}`)
+      console.log(`📊 [getSummonerByRiotId] Cached summoner data:`, {
+        id: cachedData.id,
+        puuid: cachedData.puuid,
+        name: cachedData.name,
+        gameName: cachedData.gameName,
+        tagLine: cachedData.tagLine,
+        summonerLevel: cachedData.summonerLevel,
+      })
       return cachedData
     }
 
     // First, get the Riot account using the account-v1 API (regional routing)
-    const accountData = await makeApiRequest(`${BASE_URLS.account(region)}/${name}/${tag}`, region)
+    const accountUrl = `${BASE_URLS.account(region)}/${name}/${tag}`
+    console.log(`🌐 [getSummonerByRiotId] Fetching account data from: ${accountUrl}`)
+
+    const accountData = await makeApiRequest(accountUrl, region)
+    console.log(`✅ [getSummonerByRiotId] Account data received:`, {
+      puuid: accountData.puuid,
+      gameName: accountData.gameName,
+      tagLine: accountData.tagLine,
+    })
 
     // Then, use the PUUID to get the summoner data (platform routing)
-    const summonerData = await makeApiRequest(`${BASE_URLS.summoner(region)}/by-puuid/${accountData.puuid}`, region)
+    const summonerUrl = `${BASE_URLS.summoner(region)}/by-puuid/${accountData.puuid}`
+    console.log(`🌐 [getSummonerByRiotId] Fetching summoner data from: ${summonerUrl}`)
+
+    const summonerData = await makeApiRequest(summonerUrl, region)
+    console.log(`✅ [getSummonerByRiotId] Summoner data received:`, {
+      id: summonerData.id,
+      accountId: summonerData.accountId,
+      puuid: summonerData.puuid,
+      name: summonerData.name,
+      profileIconId: summonerData.profileIconId,
+      summonerLevel: summonerData.summonerLevel,
+    })
 
     // Combine the data
     const combinedData = {
@@ -321,12 +352,22 @@ export async function getSummonerByRiotId(region: string, name: string, tag: str
       tagLine: accountData.tagLine,
     }
 
+    console.log(`📊 [getSummonerByRiotId] Final combined data:`, {
+      id: combinedData.id,
+      puuid: combinedData.puuid,
+      name: combinedData.name,
+      gameName: combinedData.gameName,
+      tagLine: combinedData.tagLine,
+      summonerLevel: combinedData.summonerLevel,
+    })
+
     // Cache the result
     setInCache(cacheKey, combinedData, CACHE_EXPIRY.SUMMONER)
+    console.log(`💾 [getSummonerByRiotId] Data cached with key: ${cacheKey}`)
 
     return combinedData
   } catch (error) {
-    console.error("Error in getSummonerByRiotId:", error)
+    console.error(`❌ [getSummonerByRiotId] Error for ${name}#${tag} in region ${region}:`, error)
     throw error
   }
 }
@@ -341,25 +382,56 @@ export async function getSummonerByName(region: string, name: string) {
   }
 }
 
-// Get league entries for a summoner
-export async function getLeagueEntries(region: string, summonerId: string) {
+// Get league entries for a summoner using PUUID (FIXED)
+export async function getLeagueEntries(region: string, puuid: string) {
+  console.log(`🏆 [getLeagueEntries] Requesting ranked data (puuid=${puuid}, region=${region})`)
+
+  const cacheKey = CACHE_KEYS.LEAGUE_ENTRIES(puuid, region)
+  const cached = getFromCache<any[]>(cacheKey)
+  if (cached) {
+    console.log(`✅ [getLeagueEntries] Served from cache (${cached.length} entries)`)
+    return cached
+  }
+
   try {
-    // Check cache first
-    const cacheKey = CACHE_KEYS.LEAGUE_ENTRIES(summonerId, region)
-    const cachedData = getFromCache<any[]>(cacheKey)
-    if (cachedData) {
-      return cachedData
+    // FIXED: Use by-puuid endpoint instead of by-summoner
+    const url = `${BASE_URLS.league(region)}/${puuid}`
+    console.log(`🌐 [getLeagueEntries] Fetching ranked data from: ${url}`)
+
+    const data = await makeApiRequest(url, region)
+
+    console.log(`✅ [getLeagueEntries] Ranked data received:`, {
+      count: data.length,
+      entries: data.map((entry: any) => ({
+        queueType: entry.queueType,
+        tier: entry.tier,
+        rank: entry.rank,
+        leaguePoints: entry.leaguePoints,
+        wins: entry.wins,
+        losses: entry.losses,
+      })),
+    })
+
+    // normal successful path
+    setInCache(cacheKey, data, CACHE_EXPIRY.LEAGUE_ENTRIES)
+    console.log(`💾 [getLeagueEntries] Stored ${data.length} entries in cache`)
+    return data
+  } catch (err: any) {
+    const msg = String(err?.message || err)
+    console.error(`❌ [getLeagueEntries] ${msg}`)
+
+    // Gracefully degrade on 403 (forbidden key / private data) or 404 (no ranked)
+    if (msg.includes("403") || msg.includes("404")) {
+      console.warn(
+        `⚠️ [getLeagueEntries] Returning empty ranked data because endpoint responded with ${
+          msg.includes("403") ? "403" : "404"
+        }`,
+      )
+      return []
     }
 
-    const data = await makeApiRequest(`${BASE_URLS.league(region)}/${summonerId}`, region)
-
-    // Cache the result
-    setInCache(cacheKey, data, CACHE_EXPIRY.LEAGUE_ENTRIES)
-
-    return data
-  } catch (error) {
-    console.error("Error in getLeagueEntries:", error)
-    throw error
+    // any other error should propagate
+    throw err
   }
 }
 
@@ -582,4 +654,43 @@ export function getRateLimitStatus() {
   }
 
   return status
+}
+
+// Debug function to test API endpoints
+export async function debugApiEndpoints(region: string, puuid: string) {
+  console.log(`🔧 [debugApiEndpoints] Testing API endpoints for PUUID ${puuid} in region ${region}`)
+
+  // Test League endpoint with PUUID (FIXED)
+  const leagueUrl = `${BASE_URLS.league(region)}/${puuid}`
+  console.log(`🔧 [debugApiEndpoints] Testing League URL: ${leagueUrl}`)
+
+  try {
+    const response = await fetch(leagueUrl, {
+      headers: {
+        "X-Riot-Token": API_KEYS[0] || "NO_KEY",
+      },
+    })
+
+    console.log(`🔧 [debugApiEndpoints] League endpoint response:`, {
+      status: response.status,
+      statusText: response.statusText,
+      headers: Object.fromEntries(response.headers.entries()),
+    })
+
+    if (response.ok) {
+      const data = await response.json()
+      console.log(`🔧 [debugApiEndpoints] League endpoint data:`, data)
+    } else {
+      const errorText = await response.text()
+      console.log(`🔧 [debugApiEndpoints] League endpoint error body:`, errorText)
+    }
+  } catch (error) {
+    console.error(`🔧 [debugApiEndpoints] League endpoint fetch error:`, error)
+  }
+
+  // Test API key validity
+  console.log(`🔧 [debugApiEndpoints] API Keys configured: ${API_KEYS.length}`)
+  API_KEYS.forEach((key, index) => {
+    console.log(`🔧 [debugApiEndpoints] API Key ${index + 1}: ${key ? `${key.substring(0, 8)}...` : "MISSING"}`)
+  })
 }

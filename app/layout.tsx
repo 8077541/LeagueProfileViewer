@@ -3,6 +3,7 @@ import "@/app/globals.css"
 import type { Metadata } from "next"
 import { Inter } from "next/font/google"
 import { Toaster } from "@/components/toaster"
+import { DebugPanel } from "@/components/debug-panel"
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -51,6 +52,7 @@ export default function RootLayout({
       <body className={inter.className}>
         {children}
         <Toaster />
+        <DebugPanel />
       </body>
     </html>
   )

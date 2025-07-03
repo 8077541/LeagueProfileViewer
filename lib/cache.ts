@@ -3,7 +3,7 @@
 // Define cache keys
 export const CACHE_KEYS = {
   SUMMONER: (region: string, name: string, tag: string) => `summoner_${region}_${name}_${tag}`,
-  LEAGUE_ENTRIES: (summonerId: string, region: string) => `league_entries_${summonerId}_${region}`,
+  LEAGUE_ENTRIES: (puuid: string, region: string) => `league_entries_${puuid}_${region}`, // FIXED: Use PUUID
   MATCH_IDS: (puuid: string, region: string) => `match_ids_${puuid}_${region}`,
   MATCH: (matchId: string) => `match_${matchId}`,
   STATIC_DATA: "static_data",

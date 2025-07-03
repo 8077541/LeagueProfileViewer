@@ -17,6 +17,7 @@ import {
   getMatchDetailsInBatches,
   getStaticData,
   initializeCache,
+  debugApiEndpoints,
 } from "@/lib/riot"
 
 interface ProfilePageProps {
@@ -30,32 +31,68 @@ interface ProfilePageProps {
 // Create a separate component for the profile content to enable proper loading states
 async function ProfileContent({ region, username, tag }: { region: string; username: string; tag: string }) {
   try {
-    // Fetch summoner data
-    const summoner = await getSummonerByRiotId(region, username, tag)
+    console.log(`🚀 [ProfileContent] Starting profile load for ${username}#${tag} in region ${region}`)
 
-    // Fetch league entries
-    const leagueEntries = await getLeagueEntries(region, summoner.id)
+    // Fetch summoner data
+    console.log(`👤 [ProfileContent] Fetching summoner data...`)
+    const summoner = await getSummonerByRiotId(region, username, tag)
+    console.log(`✅ [ProfileContent] Summoner data loaded:`, {
+      id: summoner.id,
+      puuid: summoner.puuid,
+      name: summoner.name || summoner.gameName,
+      level: summoner.summonerLevel,
+    })
+
+    // Debug API endpoints if needed (FIXED: pass PUUID instead of summoner ID)
+    if (process.env.NODE_ENV === "development") {
+      await debugApiEndpoints(region, summoner.puuid)
+    }
+
+    // Fetch league entries (FIXED: pass PUUID instead of summoner ID)
+    let leagueEntries: any[] = []
+    try {
+      console.log(`🏆 [ProfileContent] Fetching league entries for PUUID: ${summoner.puuid}`)
+      leagueEntries = await getLeagueEntries(region, summoner.puuid)
+      console.log(`✅ [ProfileContent] League entries loaded:`, {
+        count: leagueEntries.length,
+        entries: leagueEntries.map((entry) => ({
+          queueType: entry.queueType,
+          tier: entry.tier,
+          rank: entry.rank,
+          lp: entry.leaguePoints,
+        })),
+      })
+    } catch (leagueErr) {
+      console.warn("⚠️  Ranked data unavailable:", leagueErr)
+      leagueEntries = []
+    }
 
     // Fetch static data (items, runes, summoner spells)
+    console.log(`📊 [ProfileContent] Fetching static data...`)
     const staticData = await getStaticData()
+    console.log(`✅ [ProfileContent] Static data loaded`)
 
     // Try to fetch initial match data, but don't fail the whole page if it doesn't work
     const matchData = { matches: [], errors: [] }
     try {
+      console.log(`🎮 [ProfileContent] Fetching match data for PUUID: ${summoner.puuid}`)
+
       // Fetch match IDs - reduced to 10 to avoid rate limiting
       const matchIds = await getMatchIds(region, summoner.puuid, 10)
+      console.log(`✅ [ProfileContent] Match IDs loaded: ${matchIds.length} matches`)
 
       // Fetch match details in batches to avoid rate limiting
       const { matches, errors } = await getMatchDetailsInBatches(region, matchIds, 3)
+      console.log(`✅ [ProfileContent] Match details loaded: ${matches.length} matches, ${errors.length} errors`)
 
       matchData.matches = matches
       matchData.errors = errors
 
       if (errors.length > 0) {
-        console.log(`Failed to fetch ${errors.length} matches due to errors`)
+        console.log(`⚠️ [ProfileContent] Failed to fetch ${errors.length} matches due to errors`)
       }
     } catch (error: any) {
-      console.error("Error fetching match data:", error)
+      console.error(`❌ [ProfileContent] Error fetching match data:`, error)
       matchData.errors.push(error)
     }
 
@@ -64,6 +101,7 @@ async function ProfileContent({ region, username, tag }: { region: string; usern
     const showPartialDataWarning = matchData.matches.length > 0 && matchData.errors.length > 0
 
     const displayName = summoner.gameName || summoner.name || "Unknown"
+    console.log(`🎯 [ProfileContent] Profile load complete for ${displayName}`)
 
     return (
       <div className="container max-w-6xl mx-auto p-4 space-y-8">
@@ -118,13 +156,15 @@ async function ProfileContent({ region, username, tag }: { region: string; usern
       </div>
     )
   } catch (error: any) {
-    console.error("Error fetching profile data:", error)
+    console.error(`❌ [ProfileContent] Error fetching profile data for ${username}#${tag}:`, error)
     return notFound()
   }
 }
 
 export default async function ProfilePage({ params }: ProfilePageProps) {
   const { region, username, tag } = params
+
+  console.log(`🌐 [ProfilePage] Page load initiated for ${username}#${tag} in region ${region}`)
 
   // Initialize cache (clears expired items)
   if (typeof window !== "undefined") {
