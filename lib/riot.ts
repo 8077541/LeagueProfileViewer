@@ -43,15 +43,15 @@ const BASE_URLS = {
 
 // DataDragon URLs for static data
 export const DATA_DRAGON = {
-  champions: "https://ddragon.leagueoflegends.com/cdn/15.10.1/data/en_US/champion.json",
-  items: "https://ddragon.leagueoflegends.com/cdn/15.10.1/data/en_US/item.json",
-  runes: "https://ddragon.leagueoflegends.com/cdn/15.10.1/data/en_US/runesReforged.json",
-  summonerSpells: "https://ddragon.leagueoflegends.com/cdn/15.10.1/data/en_US/summoner.json",
-  profileIcon: (iconId: number) => `https://ddragon.leagueoflegends.com/cdn/15.10.1/img/profileicon/${iconId}.png`,
+  champions: "https://ddragon.leagueoflegends.com/cdn/15.13.1/data/en_US/champion.json",
+  items: "https://ddragon.leagueoflegends.com/cdn/15.13.1/data/en_US/item.json",
+  runes: "https://ddragon.leagueoflegends.com/cdn/15.13.1/data/en_US/runesReforged.json",
+  summonerSpells: "https://ddragon.leagueoflegends.com/cdn/15.13.1/data/en_US/summoner.json",
+  profileIcon: (iconId: number) => `https://ddragon.leagueoflegends.com/cdn/15.13.1/img/profileicon/${iconId}.png`,
   championIcon: (championId: string) =>
-    `https://ddragon.leagueoflegends.com/cdn/15.10.1/img/champion/${championId}.png`,
-  itemIcon: (itemId: number) => `https://ddragon.leagueoflegends.com/cdn/15.10.1/img/item/${itemId}.png`,
-  summonerSpellIcon: (spellId: string) => `https://ddragon.leagueoflegends.com/cdn/15.10.1/img/spell/${spellId}.png`,
+    `https://ddragon.leagueoflegends.com/cdn/15.13.1/img/champion/${championId}.png`,
+  itemIcon: (itemId: number) => `https://ddragon.leagueoflegends.com/cdn/15.13.1/img/item/${itemId}.png`,
+  summonerSpellIcon: (spellId: string) => `https://ddragon.leagueoflegends.com/cdn/15.13.1/img/spell/${spellId}.png`,
   rankEmblem: (tier: string) => {
     // Convert tier to lowercase for URL
     const formattedTier = tier ? tier.toLowerCase() : "unranked"
