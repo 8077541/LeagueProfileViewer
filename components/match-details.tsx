@@ -18,13 +18,52 @@ interface MatchDetailsProps {
 }
 
 export function MatchDetails({ match, currentPuuid, staticData, searchTerm = "" }: MatchDetailsProps) {
-  // Separate participants by team
+  // Separate participants by team - handle variable team sizes
   const blueTeam = match.info.participants.filter((p: any) => p.teamId === 100)
   const redTeam = match.info.participants.filter((p: any) => p.teamId === 200)
 
-  // Get team stats
-  const blueTeamStats = match.info.teams.find((team: any) => team.teamId === 100)
-  const redTeamStats = match.info.teams.find((team: any) => team.teamId === 200)
+  // Handle special game modes with different team structures
+  const isArenaMode = match.info.participants.length === 8 // Arena 2v2v2v2
+  const isSpecialMode = match.info.participants.length !== 10 // Not standard 5v5
+
+  // For Arena mode, we might need to group differently
+  let teamGroups = []
+  if (isArenaMode) {
+    // Arena mode: group by teamId, but there might be 4 teams of 2
+    const teamMap = new Map()
+    match.info.participants.forEach((p: any) => {
+      if (!teamMap.has(p.teamId)) {
+        teamMap.set(p.teamId, [])
+      }
+      teamMap.get(p.teamId).push(p)
+    })
+    teamGroups = Array.from(teamMap.entries())
+  } else {
+    // Standard mode: blue vs red
+    teamGroups = [
+      [100, blueTeam],
+      [200, redTeam],
+    ]
+  }
+
+  // Get team stats - handle cases where team data might not exist
+  const getTeamStats = (teamId: number) => {
+    const teamStats = match.info.teams?.find((team: any) => team.teamId === teamId)
+    return (
+      teamStats || {
+        teamId,
+        win: false,
+        objectives: {
+          champion: { kills: 0, first: false },
+          tower: { kills: 0, first: false },
+          inhibitor: { kills: 0, first: false },
+          baron: { kills: 0, first: false },
+          dragon: { kills: 0, first: false },
+          riftHerald: { kills: 0, first: false },
+        },
+      }
+    )
+  }
 
   // Get region from match data
   const region = match.info.platformId.toLowerCase()
@@ -89,320 +128,190 @@ export function MatchDetails({ match, currentPuuid, staticData, searchTerm = "" 
       </TabsList>
 
       <TabsContent value="overview" className="space-y-4" onClick={(e) => e.stopPropagation()}>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {/* Blue Team */}
-          <div className="space-y-2">
-            <div className="flex justify-between items-center">
-              <h3 className="font-semibold text-blue-600">Blue Team {blueTeamStats.win ? "(Victory)" : "(Defeat)"}</h3>
-              <div className="text-sm">
-                <span className="font-medium">{blueTeamStats.objectives.champion.kills}</span> Kills |
-                <span className="font-medium"> {blueTeamStats.objectives.tower.kills}</span> Towers |
-                <span className="font-medium"> {blueTeamStats.objectives.dragon.kills}</span> Dragons
-              </div>
-            </div>
-            <div className="bg-blue-50 rounded-md overflow-hidden">
-              <table className="min-w-full divide-y divide-blue-200">
-                <thead className="bg-blue-100">
-                  <tr>
-                    <th
-                      scope="col"
-                      className="px-2 py-2 text-left text-xs font-medium text-blue-800 uppercase tracking-wider"
-                    >
-                      Player
-                    </th>
-                    <th
-                      scope="col"
-                      className="px-2 py-2 text-left text-xs font-medium text-blue-800 uppercase tracking-wider"
-                    >
-                      KDA
-                    </th>
-                    <th
-                      scope="col"
-                      className="px-2 py-2 text-left text-xs font-medium text-blue-800 uppercase tracking-wider"
-                    >
-                      Damage
-                    </th>
-                    <th
-                      scope="col"
-                      className="px-2 py-2 text-left text-xs font-medium text-blue-800 uppercase tracking-wider"
-                    >
-                      CS
-                    </th>
-                    <th
-                      scope="col"
-                      className="px-2 py-2 text-left text-xs font-medium text-blue-800 uppercase tracking-wider"
-                    >
-                      Items
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-blue-100">
-                  {blueTeam.map((player: any) => {
-                    const isSearchMatch = isPlayerMatch(player)
-
-                    // Create item slots array
-                    const itemSlots = createItemSlots(player)
-
-                    return (
-                      <tr
-                        key={player.puuid}
-                        className={`${player.puuid === currentPuuid ? "bg-blue-50" : ""} ${
-                          isSearchMatch ? "bg-yellow-100" : ""
-                        }`}
-                      >
-                        <td className="px-2 py-2 whitespace-nowrap">
-                          <div className="flex items-center space-x-2">
-                            <div className="flex-shrink-0 h-8 w-8 relative">
-                              <Image
-                                className="rounded"
-                                src={DATA_DRAGON.championIcon(player.championName) || "/placeholder.svg"}
-                                alt={player.championName}
-                                width={32}
-                                height={32}
-                              />
-                              <div className="absolute -bottom-1 -right-1 bg-gray-800 text-white text-xs px-1 rounded">
-                                {player.champLevel}
-                              </div>
-                            </div>
-                            <Link
-                              href={`/${region}/${player.summonerName || player.riotIdGameName || "Unknown"}/${player.riotIdTagline || "NA1"}`}
-                              className="text-sm font-medium text-gray-900 truncate max-w-[100px] hover:underline"
-                              onClick={(e) => e.stopPropagation()}
-                            >
-                              {isSearchMatch
-                                ? highlightName(player.summonerName || player.riotIdGameName || "Unknown")
-                                : player.summonerName || player.riotIdGameName || "Unknown"}
-                            </Link>
-                          </div>
-                        </td>
-                        <td className="px-2 py-2 whitespace-nowrap">
-                          <div className="text-sm">
-                            <span className="text-green-600">{player.kills}</span>/
-                            <span className="text-red-600">{player.deaths}</span>/
-                            <span className="text-blue-600">{player.assists}</span>
-                          </div>
-                          <div className="text-xs text-gray-500">
-                            {player.deaths === 0
-                              ? "Perfect"
-                              : ((player.kills + player.assists) / player.deaths).toFixed(2)}{" "}
-                            KDA
-                          </div>
-                        </td>
-                        <td className="px-2 py-2 whitespace-nowrap">
-                          <div className="text-sm">{player.totalDamageDealtToChampions.toLocaleString()}</div>
-                          <div className="text-xs text-gray-500">
-                            {Math.round(
-                              (player.totalDamageDealtToChampions / match.info.gameDuration) * 60,
-                            ).toLocaleString()}{" "}
-                            / min
-                          </div>
-                        </td>
-                        <td className="px-2 py-2 whitespace-nowrap">
-                          <div className="text-sm">{player.totalMinionsKilled + player.neutralMinionsKilled}</div>
-                          <div className="text-xs text-gray-500">
-                            {Math.round(
-                              (player.totalMinionsKilled + player.neutralMinionsKilled) /
-                                (match.info.gameDuration / 60),
-                            ).toLocaleString()}{" "}
-                            / min
-                          </div>
-                        </td>
-                        <td className="px-2 py-2">
-                          <div className="flex gap-1">
-                            {itemSlots.map((item, index) =>
-                              item.id ? (
-                                <TooltipProvider key={index}>
-                                  <Tooltip>
-                                    <TooltipTrigger asChild>
-                                      <div
-                                        className={`h-6 w-6 rounded overflow-hidden bg-gray-200 ${item.isTrinket ? "border border-yellow-400" : ""}`}
-                                      >
-                                        <Image
-                                          src={DATA_DRAGON.itemIcon(item.id) || "/placeholder.svg"}
-                                          alt={`Item ${item.id}`}
-                                          width={24}
-                                          height={24}
-                                        />
-                                      </div>
-                                    </TooltipTrigger>
-                                    <TooltipContent>
-                                      <p>{staticData.items.data[item.id]?.name || "Unknown Item"}</p>
-                                    </TooltipContent>
-                                  </Tooltip>
-                                </TooltipProvider>
-                              ) : (
-                                <div
-                                  key={index}
-                                  className={`h-6 w-6 rounded bg-gray-500 ${item.isTrinket ? "border border-yellow-400" : ""}`}
-                                />
-                              ),
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
-            </div>
+        {isSpecialMode && (
+          <div className="bg-yellow-50 border border-yellow-200 rounded-md p-3 mb-4">
+            <p className="text-sm text-yellow-800">
+              <strong>Special Game Mode:</strong> This match has {match.info.participants.length} players
+              {isArenaMode ? " (Arena Mode)" : ""}
+            </p>
           </div>
+        )}
 
-          {/* Red Team */}
-          <div className="space-y-2">
-            <div className="flex justify-between items-center">
-              <h3 className="font-semibold text-red-600">Red Team {redTeamStats.win ? "(Victory)" : "(Defeat)"}</h3>
-              <div className="text-sm">
-                <span className="font-medium">{redTeamStats.objectives.champion.kills}</span> Kills |
-                <span className="font-medium"> {redTeamStats.objectives.tower.kills}</span> Towers |
-                <span className="font-medium"> {redTeamStats.objectives.dragon.kills}</span> Dragons
-              </div>
-            </div>
-            <div className="bg-red-50 rounded-md overflow-hidden">
-              <table className="min-w-full divide-y divide-red-200">
-                <thead className="bg-red-100">
-                  <tr>
-                    <th
-                      scope="col"
-                      className="px-2 py-2 text-left text-xs font-medium text-red-800 uppercase tracking-wider"
-                    >
-                      Player
-                    </th>
-                    <th
-                      scope="col"
-                      className="px-2 py-2 text-left text-xs font-medium text-red-800 uppercase tracking-wider"
-                    >
-                      KDA
-                    </th>
-                    <th
-                      scope="col"
-                      className="px-2 py-2 text-left text-xs font-medium text-red-800 uppercase tracking-wider"
-                    >
-                      Damage
-                    </th>
-                    <th
-                      scope="col"
-                      className="px-2 py-2 text-left text-xs font-medium text-red-800 uppercase tracking-wider"
-                    >
-                      CS
-                    </th>
-                    <th
-                      scope="col"
-                      className="px-2 py-2 text-left text-xs font-medium text-red-800 uppercase tracking-wider"
-                    >
-                      Items
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-red-100">
-                  {redTeam.map((player: any) => {
-                    const isSearchMatch = isPlayerMatch(player)
+        <div className={`grid gap-4 ${isArenaMode ? "grid-cols-1" : "grid-cols-1 md:grid-cols-2"}`}>
+          {teamGroups.map(([teamId, teamPlayers], index) => {
+            const teamStats = getTeamStats(teamId)
+            const teamColor = teamId === 100 ? "blue" : teamId === 200 ? "red" : "purple"
+            const teamName = isArenaMode ? `Team ${index + 1}` : teamId === 100 ? "Blue Team" : "Red Team"
 
-                    // Create item slots array
-                    const itemSlots = createItemSlots(player)
+            return (
+              <div key={teamId} className="space-y-2">
+                <div className="flex justify-between items-center">
+                  <h3 className={`font-semibold text-${teamColor}-600`}>
+                    {teamName} {teamStats.win ? "(Victory)" : "(Defeat)"}
+                  </h3>
+                  <div className="text-sm">
+                    <span className="font-medium">{teamStats.objectives?.champion?.kills || 0}</span> Kills
+                    {!isArenaMode && (
+                      <>
+                        | <span className="font-medium">{teamStats.objectives?.tower?.kills || 0}</span> Towers |{" "}
+                        <span className="font-medium">{teamStats.objectives?.dragon?.kills || 0}</span> Dragons
+                      </>
+                    )}
+                  </div>
+                </div>
 
-                    return (
-                      <tr
-                        key={player.puuid}
-                        className={`${player.puuid === currentPuuid ? "bg-red-50" : ""} ${
-                          isSearchMatch ? "bg-yellow-100" : ""
-                        }`}
-                      >
-                        <td className="px-2 py-2 whitespace-nowrap">
-                          <div className="flex items-center space-x-2">
-                            <div className="flex-shrink-0 h-8 w-8 relative">
-                              <Image
-                                className="rounded"
-                                src={DATA_DRAGON.championIcon(player.championName) || "/placeholder.svg"}
-                                alt={player.championName}
-                                width={32}
-                                height={32}
-                              />
-                              <div className="absolute -bottom-1 -right-1 bg-gray-800 text-white text-xs px-1 rounded">
-                                {player.champLevel}
-                              </div>
-                            </div>
-                            <Link
-                              href={`/${region}/${player.summonerName || player.riotIdGameName || "Unknown"}/${player.riotIdTagline || "NA1"}`}
-                              className="text-sm font-medium text-gray-900 truncate max-w-[100px] hover:underline"
-                              onClick={(e) => e.stopPropagation()}
-                            >
-                              {isSearchMatch
-                                ? highlightName(player.summonerName || player.riotIdGameName || "Unknown")
-                                : player.summonerName || player.riotIdGameName || "Unknown"}
-                            </Link>
-                          </div>
-                        </td>
-                        <td className="px-2 py-2 whitespace-nowrap">
-                          <div className="text-sm">
-                            <span className="text-green-600">{player.kills}</span>/
-                            <span className="text-red-600">{player.deaths}</span>/
-                            <span className="text-blue-600">{player.assists}</span>
-                          </div>
-                          <div className="text-xs text-gray-500">
-                            {player.deaths === 0
-                              ? "Perfect"
-                              : ((player.kills + player.assists) / player.deaths).toFixed(2)}{" "}
-                            KDA
-                          </div>
-                        </td>
-                        <td className="px-2 py-2 whitespace-nowrap">
-                          <div className="text-sm">{player.totalDamageDealtToChampions.toLocaleString()}</div>
-                          <div className="text-xs text-gray-500">
-                            {Math.round(
-                              (player.totalDamageDealtToChampions / match.info.gameDuration) * 60,
-                            ).toLocaleString()}{" "}
-                            / min
-                          </div>
-                        </td>
-                        <td className="px-2 py-2 whitespace-nowrap">
-                          <div className="text-sm">{player.totalMinionsKilled + player.neutralMinionsKilled}</div>
-                          <div className="text-xs text-gray-500">
-                            {Math.round(
-                              (player.totalMinionsKilled + player.neutralMinionsKilled) /
-                                (match.info.gameDuration / 60),
-                            ).toLocaleString()}{" "}
-                            / min
-                          </div>
-                        </td>
-                        <td className="px-2 py-2">
-                          <div className="flex gap-1">
-                            {itemSlots.map((item, index) =>
-                              item.id ? (
-                                <TooltipProvider key={index}>
-                                  <Tooltip>
-                                    <TooltipTrigger asChild>
-                                      <div
-                                        className={`h-6 w-6 rounded overflow-hidden bg-gray-200 ${item.isTrinket ? "border border-yellow-400" : ""}`}
-                                      >
-                                        <Image
-                                          src={DATA_DRAGON.itemIcon(item.id) || "/placeholder.svg"}
-                                          alt={`Item ${item.id}`}
-                                          width={24}
-                                          height={24}
-                                        />
-                                      </div>
-                                    </TooltipTrigger>
-                                    <TooltipContent>
-                                      <p>{staticData.items.data[item.id]?.name || "Unknown Item"}</p>
-                                    </TooltipContent>
-                                  </Tooltip>
-                                </TooltipProvider>
-                              ) : (
-                                <div
-                                  key={index}
-                                  className={`h-6 w-6 rounded bg-gray-500 ${item.isTrinket ? "border border-yellow-400" : ""}`}
-                                />
-                              ),
-                            )}
-                          </div>
-                        </td>
+                <div className={`bg-${teamColor}-50 rounded-md overflow-hidden`}>
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className={`bg-${teamColor}-100`}>
+                      <tr>
+                        <th
+                          className={`px-2 py-2 text-left text-xs font-medium text-${teamColor}-800 uppercase tracking-wider`}
+                        >
+                          Player
+                        </th>
+                        <th
+                          className={`px-2 py-2 text-left text-xs font-medium text-${teamColor}-800 uppercase tracking-wider`}
+                        >
+                          KDA
+                        </th>
+                        <th
+                          className={`px-2 py-2 text-left text-xs font-medium text-${teamColor}-800 uppercase tracking-wider`}
+                        >
+                          Damage
+                        </th>
+                        <th
+                          className={`px-2 py-2 text-left text-xs font-medium text-${teamColor}-800 uppercase tracking-wider`}
+                        >
+                          CS
+                        </th>
+                        <th
+                          className={`px-2 py-2 text-left text-xs font-medium text-${teamColor}-800 uppercase tracking-wider`}
+                        >
+                          Items
+                        </th>
                       </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </div>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-100">
+                      {teamPlayers.map((player: any) => {
+                        const isSearchMatch = isPlayerMatch(player)
+                        const itemSlots = createItemSlots(player)
+
+                        return (
+                          <tr
+                            key={player.puuid}
+                            className={`${player.puuid === currentPuuid ? `bg-${teamColor}-50` : ""} ${
+                              isSearchMatch ? "bg-yellow-100" : ""
+                            }`}
+                          >
+                            {/* Player cell */}
+                            <td className="px-2 py-2 whitespace-nowrap">
+                              <div className="flex items-center space-x-2">
+                                <div className="flex-shrink-0 h-8 w-8 relative">
+                                  <Image
+                                    className="rounded"
+                                    src={DATA_DRAGON.championIcon(player.championName) || "/placeholder.svg"}
+                                    alt={player.championName}
+                                    width={32}
+                                    height={32}
+                                  />
+                                  <div className="absolute -bottom-1 -right-1 bg-gray-800 text-white text-xs px-1 rounded">
+                                    {player.champLevel}
+                                  </div>
+                                </div>
+                                <Link
+                                  href={`/${region}/${player.summonerName || player.riotIdGameName || "Unknown"}/${player.riotIdTagline || "NA1"}`}
+                                  className="text-sm font-medium text-gray-900 truncate max-w-[100px] hover:underline"
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  {isSearchMatch
+                                    ? highlightName(player.summonerName || player.riotIdGameName || "Unknown")
+                                    : player.summonerName || player.riotIdGameName || "Unknown"}
+                                </Link>
+                              </div>
+                            </td>
+
+                            {/* KDA cell */}
+                            <td className="px-2 py-2 whitespace-nowrap">
+                              <div className="text-sm">
+                                <span className="text-green-600">{player.kills}</span>/
+                                <span className="text-red-600">{player.deaths}</span>/
+                                <span className="text-blue-600">{player.assists}</span>
+                              </div>
+                              <div className="text-xs text-gray-500">
+                                {player.deaths === 0
+                                  ? "Perfect"
+                                  : ((player.kills + player.assists) / player.deaths).toFixed(2)}{" "}
+                                KDA
+                              </div>
+                            </td>
+
+                            {/* Damage cell */}
+                            <td className="px-2 py-2 whitespace-nowrap">
+                              <div className="text-sm">{player.totalDamageDealtToChampions?.toLocaleString() || 0}</div>
+                              <div className="text-xs text-gray-500">
+                                {Math.round(
+                                  ((player.totalDamageDealtToChampions || 0) / (match.info.gameDuration || 1)) * 60,
+                                ).toLocaleString()}{" "}
+                                / min
+                              </div>
+                            </td>
+
+                            {/* CS cell */}
+                            <td className="px-2 py-2 whitespace-nowrap">
+                              <div className="text-sm">
+                                {(player.totalMinionsKilled || 0) + (player.neutralMinionsKilled || 0)}
+                              </div>
+                              <div className="text-xs text-gray-500">
+                                {Math.round(
+                                  ((player.totalMinionsKilled || 0) + (player.neutralMinionsKilled || 0)) /
+                                    ((match.info.gameDuration || 1) / 60),
+                                ).toFixed(1)}{" "}
+                                / min
+                              </div>
+                            </td>
+
+                            {/* Items cell */}
+                            <td className="px-2 py-2">
+                              <div className="flex gap-1">
+                                {itemSlots.map((item, index) =>
+                                  item.id ? (
+                                    <TooltipProvider key={index}>
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <div
+                                            className={`h-6 w-6 rounded overflow-hidden bg-gray-200 ${item.isTrinket ? "border border-yellow-400" : ""}`}
+                                          >
+                                            <Image
+                                              src={DATA_DRAGON.itemIcon(item.id) || "/placeholder.svg"}
+                                              alt={`Item ${item.id}`}
+                                              width={24}
+                                              height={24}
+                                            />
+                                          </div>
+                                        </TooltipTrigger>
+                                        <TooltipContent>
+                                          <p>{staticData.items.data[item.id]?.name || "Unknown Item"}</p>
+                                        </TooltipContent>
+                                      </Tooltip>
+                                    </TooltipProvider>
+                                  ) : (
+                                    <div
+                                      key={index}
+                                      className={`h-6 w-6 rounded bg-gray-500 ${item.isTrinket ? "border border-yellow-400" : ""}`}
+                                    />
+                                  ),
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )
+          })}
         </div>
       </TabsContent>
 
